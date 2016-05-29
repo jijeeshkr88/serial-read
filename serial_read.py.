@@ -1,0 +1,102 @@
+# -*- coding: UTF-8 -*-
+#!/usr/bin/env python
+'''
+Author: Jijeesh KR (kr.jijeesh88@gmail.com)
+Description: Serial read modules
+Date: 29 May 2016
+'''
+
+import time
+import traceback
+import serial
+import minimalmodbus as mmRtu
+from pymodbus.client.sync import ModbusSerialClient as pyRtu
+
+
+slavesArr = [2]
+iterSp = 100
+regsSp = 10
+baudrate = 4800
+timeoutSp=0.018 + regsSp*0
+
+
+def pymodbus_read():
+	print "timeout: %s [s]" % timeoutSp
+	for vtr in range(0,12):
+	    tryPort='/dev/ttyUSB' + str(vtr)
+	    try:
+	        pymc = pyRtu(method='rtu', port=tryPort, baudrate=baudrate, timeout=timeoutSp)
+	        logMessage = "++ found serial on " + tryPort
+	        print (logMessage)
+	        break
+	    except:
+	    	pass
+	errCnt = 0
+	startTs = time.time()
+	for i in range(iterSp):
+	  for slaveId in slavesArr:
+	    try:
+	    	pymc.read_holding_registers(20,i)
+	    except:
+	        errCnt += 1
+	        tb = traceback.format_exc()
+	stopTs = time.time()
+	timeDiff = stopTs  - startTs
+	print "pymodbus:\ttime to read %s x %s (x %s regs): %.3f [s] / %.3f [s/req]" % (len(slavesArr),iterSp, regsSp, timeDiff, timeDiff/iterSp)
+	if errCnt >0:
+	    print "   !pymodbus:\terrCnt: %s; last tb: %s" % (errCnt, tb)
+	pymc.close()
+
+def mmodbus_read():
+	timeoutSp=0.018 + regsSp*0
+	print("timeout: %s [s]" % timeoutSp)
+	for vtr in range(0,12):
+	    tryPort='/dev/ttyUSB' + str(vtr)
+	    try:
+	        mmc_init=mmRtu.Instrument(tryPort,slaveaddress=2,mode = 'MODE_RTU')   # port name, slave address
+	        logMessage = "++ found serial on " + tryPort
+	        print (logMessage)
+	        break
+	    except:
+	    	pass
+	mmc_init.serial.baudrate=baudrate
+	mmc_init.serial.timeout=timeoutSp
+	tb = None
+	errCnt = 0
+	startTs = time.time()
+	for i in range(iterSp):
+	  for slaveId in slavesArr:
+	    mmc_init.address = slaveId
+	    try:
+	        mmc_init.read_registers(0,regsSp)
+	    except:
+	        tb = traceback.format_exc()
+	        errCnt += 1
+	stopTs = time.time()
+	timeDiff = stopTs  - startTs
+	mmc_init.serial.close()
+	print (mmc_init.serial)
+	print ("mimalmodbus:\ttime to read %s x %s (x %s regs): %.3f [s] / %.3f [s/req]" % (len(slavesArr),iterSp, regsSp, timeDiff, timeDiff/iterSp))
+	if errCnt >0:
+	    print ("   !mimalmodbus:\terrCnt: %s; last tb: %s" % (errCnt, tb))
+
+
+def serail_read():
+	for vtr in range(0,12):
+		tryPort='/dev/ttyUSB' + str(vtr)
+		try:
+			serialPort = serial.Serial(port=tryPort, baudrate=9600, timeout = 0.001)
+			logMessage = "++ found serial on " + tryPort
+			print logMessage
+			break
+		except:
+			pass
+	serialReadRaw = ''
+	try:
+		serialPort.flushInput()
+		while serialReadRaw == '':
+			serialReadRaw = serialPort.read(1)
+		print serialReadRaw
+		print "reading happend"
+	except:
+		print "Error in retriving serial Port Values"
